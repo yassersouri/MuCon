@@ -1,6 +1,18 @@
 # MuCon
 
-Please refer to each section for each model.
+
+Official implementation of "Fast Weakly Supervised Action Segmentation Using Mutual Consitency".
+
+```
+@article{mucon2021,
+    Author    = {Souri, Yaser and Fayyaz, Mohsen and Minciullo, Luca and Francesca, Gianpiero and Gall, Juergen},
+    Title     = {{Fast Weakly Supervised Action Segmentation Using Mutual Consistency}},
+    Journal = {{PAMI}},
+    Year      = {2021}
+}
+```
+
+
 
 ## General Information
 
