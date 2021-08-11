@@ -1,0 +1,3 @@
+trainer:
+  save_every: 1
+  eval_every: 1

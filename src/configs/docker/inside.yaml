@@ -1,0 +1,6 @@
+trainer:
+  root: /data/root
+  save_every: 30
+  eval_every: 30
+dataset:
+  root: /data/datasets
