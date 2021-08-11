@@ -2,7 +2,7 @@
 
 ![MuCon](misc/mucon.png)
 
-Official implementation of "Fast Weakly Supervised Action Segmentation Using Mutual Consitency".
+Official implementation of [Fast Weakly Supervised Action Segmentation Using Mutual Consitency](https://arxiv.org/abs/1904.03116).
 
 ```
 @article{mucon2021,
