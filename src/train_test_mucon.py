@@ -42,11 +42,6 @@ def main(file_configs: List[str], set_configs: List[str], exp_name: str):
     )
 
     test_evaluator.set_name("test_eval")
-    #
-    # train_evaluator = MuConBasicEvaluator(
-    #     cfg=cfg, test_db=train_db, model=model, device=cfg.system.device
-    # )
-    # train_evaluator.set_name("train_eval")
 
     trainer = SimpleTrainer(
         cfg=cfg,
@@ -54,7 +49,7 @@ def main(file_configs: List[str], set_configs: List[str], exp_name: str):
         train_db=train_db,
         model=model,
         device=cfg.system.device,
-        evaluators=[test_evaluator],  # , train_evaluator],
+        evaluators=[test_evaluator],
     )
 
     trainer.train()
