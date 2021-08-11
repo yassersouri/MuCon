@@ -2,8 +2,6 @@
 
 Please refer to each section for each model.
 
-[TOC]
-
 ## General Information
 
 The code-base is built using the [fandak](https://github.com/yassersouri/fandak) library.
@@ -12,7 +10,8 @@ The code-base is built using the [fandak](https://github.com/yassersouri/fandak)
 
 ### Breakfast
 
-**Step 1**:
+**Step 1**
+
 Downloading Breakfast dataset with I3D features: https://drive.google.com/drive/folders/1TwwCF80c6zKLr5-ZWOlceoyhqleF5OZg?usp=sharing
 
 Everything needed is included in `breakfast_i3d.zip` file.
