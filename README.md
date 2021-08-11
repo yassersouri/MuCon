@@ -1,5 +1,6 @@
 # MuCon
 
+![MuCon](misc/mucon.png)
 
 Official implementation of "Fast Weakly Supervised Action Segmentation Using Mutual Consitency".
 
@@ -11,8 +12,6 @@ Official implementation of "Fast Weakly Supervised Action Segmentation Using Mut
     Year      = {2021}
 }
 ```
-
-
 
 ## General Information
 
