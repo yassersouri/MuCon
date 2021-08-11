@@ -12,7 +12,7 @@ The code-base is built using the [fandak](https://github.com/yassersouri/fandak)
 
 **Step 1**
 
-Downloading Breakfast dataset with I3D features: https://drive.google.com/drive/folders/1TwwCF80c6zKLr5-ZWOlceoyhqleF5OZg?usp=sharing
+Downloading Breakfast dataset with I3D features: https://zenodo.org/record/5179904
 
 Everything needed is included in `breakfast_i3d.zip` file.
 
