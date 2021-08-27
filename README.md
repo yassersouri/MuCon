@@ -38,7 +38,10 @@ Then do the following:
 cd ~/work/MuCon
 mkdir datasets
 cd datasets
+# If you have already downloaded the zip move it here
 mv /path/to/downloaded/breakfast_i3d.zip ./
+# Otherwise download the zip here
+wget "https://zenodo.org/record/5179904/files/breakfast_i3d.zip?download=1" --output-document="breakfast_i3d.zip"
 unzip breakfast_i3d.zip
 rm breakfast_i3d.zip # optionally, if you don't need it.
 ```
@@ -85,7 +88,16 @@ There are various other configs available as well:
  - For MuCon: `src/configs/mucon/default.py`
 You can change the configs by passing inline arguments, passing address to yaml files or changing the defaults.
 
-This should take less than 12 hours to train and test on modern hardware.
+The training progress is shown as below:
+```
+[2021-08-27 16:07:28.884565] Training for run number: 1
+[2021-08-27 16:07:28.884773] Training epoch 1 ...
+100%|████████████████████████████████████████████████████████████████| 1460/1460 [01:39<00:00, 14.67it/s]
+[2021-08-27 16:09:08.437369] Training epoch 2 ...
+ 36%|███████████████████████▏                                         | 521/1460 [00:36<00:57, 16.23it/s]
+```
+
+This should take less than 12 hours to train and test on modern hardware and GPU.
 
 At the end of the program it will output the results of training, which looks like something like this:
 
