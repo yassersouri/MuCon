@@ -1,5 +1,6 @@
-from yacs.config import CfgNode as CN
 import os
+
+from yacs.config import CfgNode as CN
 
 dataset_cfg = CN()
 dataset_cfg.root = os.path.expanduser("~/work/MuCon/datasets")

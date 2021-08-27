@@ -1,7 +1,7 @@
 import torch
 from scipy.signal import gaussian
 from torch import Tensor
-from torch.nn.functional import affine_grid, grid_sample, softmax, cross_entropy
+from torch.nn.functional import affine_grid, grid_sample, softmax
 
 
 # noinspection PyPep8Naming
@@ -45,8 +45,12 @@ def create_masks(
         w1 = TEMPLATE_WIDTH / 2
         min_val = 0.5
         template = torch.ones(TEMPLATE_WIDTH)
-        template[:int(w1 / 2)] = torch.arange(start=min_val, end=1, step=(1 - min_val) / (w1 / 2))
-        template[-int(w1 / 2):] = torch.arange(start=1, end=min_val, step=(min_val - 1) / (w1 / 2))
+        template[: int(w1 / 2)] = torch.arange(
+            start=min_val, end=1, step=(1 - min_val) / (w1 / 2)
+        )
+        template[-int(w1 / 2) :] = torch.arange(
+            start=1, end=min_val, step=(min_val - 1) / (w1 / 2)
+        )
         template = template.repeat((B, 1)).view(B, 1, -1).float().to(L.device)
     else:
         raise NameError(f"Invalid template name ({template})")

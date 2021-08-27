@@ -12,7 +12,6 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 from yacs.config import CfgNode
 
-from core.modules.radam import RAdam
 from mucon.evaluators import MuConEvaluatorResult
 
 
@@ -33,8 +32,6 @@ def create_optimizer(cfg: CfgNode, parameters: Iterable[Parameter]) -> Optimizer
         return optim.Adam(
             params=parameters, lr=learning_rate, weight_decay=weight_decay, amsgrad=True
         )
-    elif optimizer_name == "RAdam":
-        return RAdam(params=parameters, lr=learning_rate, weight_decay=weight_decay)
     else:
         raise Exception("Invalid optimizer name (%s)" % optimizer_name)
 
@@ -175,7 +172,7 @@ class TrainerForTFExperiments(SimpleTrainer):
         model: Model,
         device: torch.device,
         evaluators: Optional[Union[Iterable[Evaluator], Evaluator]] = None,
-        turnoff_tf_after_epoch: int = 1000
+        turnoff_tf_after_epoch: int = 1000,
     ):
         super().__init__(
             cfg=cfg,

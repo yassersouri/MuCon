@@ -11,16 +11,8 @@ from .general_dataset import (
 POSSIBLE_SPLITS = [1, 2, 3, 4]
 MAX_TRANSCRIPT_LENGTH = 30
 KINETICS_FEAT_NAME = "i3d"
-IDT_FEAT_NAME = "idt"
-COIN_FEAT_NAME = "coin"
-I3DPCA_FEAT_NAME = "i3dpca"
-CONCAT_FEAT_NAME = "concat"  # concatenation of idt and i3dpca
 FEAT_DIM_MAPPING = {
     KINETICS_FEAT_NAME: 2048,
-    IDT_FEAT_NAME: 64,
-    COIN_FEAT_NAME: 512,
-    I3DPCA_FEAT_NAME: 64,
-    CONCAT_FEAT_NAME: 128
 }
 
 

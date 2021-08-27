@@ -4,11 +4,7 @@ import click
 
 from configs.mucon.default import get_cfg_defaults
 from core.datasets import handel_dataset
-from mucon.evaluators import (
-    MuConEvaluator,
-    MuConEvaluatorFullCorrected,
-    MuConEvaluatorFull,
-)
+from mucon.evaluators import MuConEvaluator
 from mucon.models import create_model
 from mucon.trainers import SimpleTrainer
 
@@ -17,20 +13,14 @@ from mucon.trainers import SimpleTrainer
 @click.argument("identifier", type=str)
 @click.option("--root", default="")
 @click.option("--data-root", default="")
-@click.option("--full-test", is_flag=True)
-@click.option("--correct-full-test", is_flag=True)
-def main(
-    identifier: str, root: str, data_root: str, full_test: bool, correct_full_test: bool
-):
-    single_main(identifier, root, data_root, full_test, correct_full_test)
+def main(identifier: str, root: str, data_root: str):
+    single_main(identifier, root, data_root)
 
 
 def single_main(
     identifier: str,
     root: str,
     data_root: str,
-    full_test: bool = False,
-    correct_full_test: bool = False,
 ):
     """
     :param identifier: exp-name/run-number/epoch-number
@@ -69,21 +59,11 @@ def single_main(
         input_feature_size=test_db.feat_dim,
     )
 
-    if not full_test:
-        test_evaluator = MuConEvaluator(
-            cfg=cfg, test_db=test_db, model=model, device=cfg.system.device
-        )
-        test_evaluator.set_name("test_eval")
-    else:
-        if not correct_full_test:
-            test_evaluator = MuConEvaluatorFull(
-                cfg=cfg, test_db=test_db, model=model, device=cfg.system.device
-            )
-        else:
-            test_evaluator = MuConEvaluatorFullCorrected(
-                cfg=cfg, test_db=test_db, model=model, device=cfg.system.device
-            )
-        test_evaluator.set_name("test_eval_full")
+    test_evaluator = MuConEvaluator(
+        cfg=cfg, test_db=test_db, model=model, device=cfg.system.device
+    )
+    test_evaluator.set_name("test_eval")
+
     test_evaluator.viterbi_mode(True)  # setting viterbi to True
 
     trainer = SimpleTrainer(

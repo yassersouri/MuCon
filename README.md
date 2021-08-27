@@ -15,7 +15,7 @@ Official implementation of [Fast Weakly Supervised Action Segmentation Using Mut
 
 ## General Information
 
-The code-base is built using the [fandak](https://github.com/yassersouri/fandak) library.
+The code-base is built using the [fandak](https://github.com/yassersouri/fandak) framework.
 
 ## Dataset
 
@@ -23,7 +23,8 @@ The code-base is built using the [fandak](https://github.com/yassersouri/fandak)
 
 **Step 1**
 
-Downloading Breakfast dataset with I3D features: https://zenodo.org/record/5179904
+Downloading Breakfast dataset with I3D features: <https://zenodo.org/record/5179904>  
+These features are obtained from the [MS-TCN](https://github.com/yabufarha/ms-tcn) project and only restructured.  
 
 Everything needed is included in `breakfast_i3d.zip` file.
 
@@ -79,6 +80,12 @@ cd ~/repo/MuCon
 export CUDA_VISIBLE_DEVICES=0
 ./run-docker-pytorch1.1.sh python src/train_test_mucon.py --cfg src/configs/docker/inside.yaml --set dataset.split 1
 ```
+There are various other configs available as well:
+ - For data: `src/core/config.py`
+ - For MuCon: `src/configs/mucon/default.py`
+You can change the configs by passing inline arguments, passing address to yaml files or changing the defaults.
+
+This should take less than 12 hours to train and test on modern hardware.
 
 At the end of the program it will output the results of training, which looks like something like this:
 

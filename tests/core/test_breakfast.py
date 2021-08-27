@@ -2,8 +2,8 @@ from unittest import TestCase
 
 from yacs.config import CfgNode
 
-from core.datasets import create_breakfast_dataset
 from core.config import dataset_cfg
+from core.datasets import create_breakfast_dataset
 
 
 class TestBreakfast(TestCase):

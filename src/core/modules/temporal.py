@@ -222,11 +222,7 @@ if __name__ == "__main__":
         pooling_layers=[1, 2],
     )
 
-    n3 = NoFt(
-        in_chnnels=64,
-        out_dims=64,
-        kernel_size=1
-    )
+    n3 = NoFt(in_chnnels=64, out_dims=64, kernel_size=1)
 
     print(inp.shape)
 

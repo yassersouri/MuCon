@@ -15,7 +15,6 @@ from core.datasets.general_dataset import (
     MixedSupervisionBatch,
     Batch,
 )
-from core.modules.custom_lstms import script_lnlstm, LSTMState, LayerNormLSTMCell
 from core.modules.temporal import WaveNetBlock, MSTCNPPFirstStage, NoFt
 from mucon.masks import project_lengths_softmax, create_masks
 
@@ -29,7 +28,10 @@ def rand_p(*sz):
 
 
 def create_model(
-    cfg: CfgNode, num_classes: int, max_decoding_steps: int, input_feature_size: int,
+    cfg: CfgNode,
+    num_classes: int,
+    max_decoding_steps: int,
+    input_feature_size: int,
 ) -> "MuCon":
     model_name = cfg.model.name
 
@@ -40,26 +42,15 @@ def create_model(
             num_classes=num_classes,
             max_decoding_steps=max_decoding_steps,
         )
-    elif model_name == "mucon-lnlstm":
-        return MuConLNLSTM(
-            cfg=cfg,
-            input_feature_size=input_feature_size,
-            num_classes=num_classes,
-            max_decoding_steps=max_decoding_steps,
-        )
-    elif model_name == "mucon-glm":
-        return MuConGlobalLength(
-            cfg=cfg,
-            input_feature_size=input_feature_size,
-            num_classes=num_classes,
-            max_decoding_steps=max_decoding_steps,
-        )
     else:
         raise Exception("Invalid model name")
 
 
 def create_fully_supervised_model(
-    cfg: CfgNode, num_classes: int, max_decoding_steps: int, input_feature_size: int,
+    cfg: CfgNode,
+    num_classes: int,
+    max_decoding_steps: int,
+    input_feature_size: int,
 ) -> "MuConFullySupervised":
     model_name = cfg.model.name
     if model_name == "mucon":
@@ -74,7 +65,10 @@ def create_fully_supervised_model(
 
 
 def create_mixed_supervision_model(
-    cfg: CfgNode, num_classes: int, max_decoding_steps: int, input_feature_size: int,
+    cfg: CfgNode,
+    num_classes: int,
+    max_decoding_steps: int,
+    input_feature_size: int,
 ) -> "MuConMixedSupervision":
     model_name = cfg.model.name
     if model_name == "mucon":
@@ -422,9 +416,14 @@ class MuCon(Model):
         if self.teacher_forcing:
             target_transcript = batch.transcript
         else:
-            target_transcript = torch.tensor([
-                word_probs.argmax().item() for word_probs in forward_out.transcript[:-1]
-            ], dtype=torch.long, device=batch.transcript.device)  # -1 because EOS
+            target_transcript = torch.tensor(
+                [
+                    word_probs.argmax().item()
+                    for word_probs in forward_out.transcript[:-1]
+                ],
+                dtype=torch.long,
+                device=batch.transcript.device,
+            )  # -1 because EOS
             target_transcript[target_transcript >= self.num_classes] = 0  # make sure
         segmentation_size = forward_out.segmentation.shape[0]
 
@@ -442,7 +441,10 @@ class MuCon(Model):
         )  # [N x T]
 
         mucon_loss = self.calculate_mucon_loss_using_masks(
-            absolute_lengths, masks, forward_out.segmentation, target_transcript,
+            absolute_lengths,
+            masks,
+            forward_out.segmentation,
+            target_transcript,
         )
 
         return mucon_loss
@@ -524,7 +526,7 @@ class MuCon(Model):
 
     def length_loss(self, batch: Batch, forward_out: MuConForwardOut) -> Tensor:
         """
-            F.relu(s - w) + F.relu(- w - s)
+        F.relu(s - w) + F.relu(- w - s)
         """
         width = self.cfg.model.loss.length_width
 
@@ -776,269 +778,6 @@ class MuCon(Model):
         self.teacher_forcing = teacher_forcing
 
 
-class MuConLNLSTM(MuCon):
-    def __init__(
-        self,
-        cfg: CfgNode,
-        input_feature_size: int,
-        num_classes: int,
-        max_decoding_steps: int,
-    ):
-        super().__init__(
-            cfg,
-            input_feature_size=input_feature_size,
-            num_classes=num_classes,
-            max_decoding_steps=max_decoding_steps,
-        )
-
-        self.fs_encoder_lstm = script_lnlstm(
-            input_size=self.cfg.model.ft.hidden_size,
-            hidden_size=self.cfg.model.fs.encoder.hidden_size,
-            num_layers=1,
-            batch_first=False,
-            dropout=False,
-            bidirectional=self.cfg.model.fs.encoder.bidirectional,
-            no_reverse=self.cfg.model.fs.jit_no_reverse,
-        )
-
-        self.fs_decoder_lstm = LayerNormLSTMCell(
-            input_size=self.cfg.model.fs.decoder.hidden_size,
-            hidden_size=self.cfg.model.fs.decoder.hidden_size,
-        )
-
-        # the reason for the following is that, one set of experiments showed
-        # that applying the clip_grad_norm is good when we do it separately
-        # for different set of parameters.
-        # the first set of parameters
-        self.params_set_encode = [
-            self.ft,
-            self.ft_last_gn,
-            self.fs_encoder_lstm,
-            self.fs_encoder_hidden_out,
-            self.fs_encoder_cn_out,
-        ]
-        # the second set of parameters
-        self.params_set_decode = [
-            self.fs_decoder_attention_W1,
-            self.fs_decoder_attention_l2,
-            self.fs_decoder_attention_l3,
-            self.fs_decoder_attention_V,
-            self.fs_decoder_embedding,
-            self.fs_decoder_attn_combine,
-            self.fs_decoder_lstm,
-            self.fs_decoder_transcript,
-            self.fs_decoder_length,
-            self.conv_classifier,
-        ]
-
-        self.encode_params = []
-        for pset in self.params_set_encode:
-            try:
-                self.encode_params.extend(list(pset.parameters()))
-            except:
-                self.encode_params.extend([pset])
-
-        self.decode_params = []
-        for pset in self.params_set_decode:
-            try:
-                self.decode_params.extend(list(pset.parameters()))
-            except:
-                self.decode_params.extend([pset])
-
-    # fixme: jit?
-    def sequence_generation_forward(
-        self,
-        temporal_encoded: Tensor,
-        tf_transcript_target_length: int,
-        transcript_tf_input: Tensor,
-    ):
-        """
-        :param temporal_encoded: [1 x T' x D']
-        :param tf_transcript_target_length: int
-        :param transcript_tf_input: [N + 1] long
-        :return:
-        """
-
-        # layer norm version:
-        init_states = [
-            [
-                LSTMState(
-                    torch.zeros(
-                        (1, self.cfg.model.fs.encoder.hidden_size),
-                        dtype=torch.float32,
-                        device=temporal_encoded.device,
-                    ),
-                    torch.zeros(
-                        (1, self.cfg.model.fs.encoder.hidden_size),
-                        dtype=torch.float32,
-                        device=temporal_encoded.device,
-                    ),
-                ),
-                LSTMState(
-                    torch.zeros(
-                        (1, self.cfg.model.fs.encoder.hidden_size),
-                        dtype=torch.float32,
-                        device=temporal_encoded.device,
-                    ),
-                    torch.zeros(
-                        (1, self.cfg.model.fs.encoder.hidden_size),
-                        dtype=torch.float32,
-                        device=temporal_encoded.device,
-                    ),
-                ),
-            ]
-        ]
-
-        lstm_in = temporal_encoded.permute(1, 0, 2)
-        # bidirectional lstm encoder
-        # fs_encoder_lstm_out: [T x 1 x 2*D']  because it is bidirectional
-        # fs_encoder_lstm_hidden, fs_encoder_lstm_c: [2 x 1 x D'], 2 because it is bidirectional.
-        # List[List[hidden, cx]]: hidden, cx: [1 x D']
-        # first list: layers, second list: directions
-        (
-            fs_encoder_lstm_out,
-            fs_encoder_lstm_out_state,
-        ) = self.fs_encoder_lstm.forward(lstm_in, init_states)
-
-        fs_encoder_lstm_hidden_flat = torch.cat(
-            [d[0] for d in fs_encoder_lstm_out_state[-1]], dim=1
-        )
-        fs_encoder_lstm_c_flat = torch.cat(
-            [d[1] for d in fs_encoder_lstm_out_state[-1]], dim=1
-        )
-
-        # fs_encoder_lstm_hidden = self.fs_encoder_hidden_out.forward(
-        #     fs_encoder_lstm_hidden_flat
-        # ).unsqueeze(
-        #     0
-        # )  # [1 x 1 x D'']
-        # fs_encoder_lstm_c = self.fs_encoder_cn_out.forward(
-        #     fs_encoder_lstm_c_flat
-        # ).unsqueeze(
-        #     0
-        # )  # [1 x 1 x D'']
-
-        fs_encoder_lstm_hidden = self.fs_encoder_hidden_out.forward(
-            fs_encoder_lstm_hidden_flat
-        )  # [1 x D'']
-        fs_encoder_lstm_c = self.fs_encoder_cn_out.forward(
-            fs_encoder_lstm_c_flat
-        )  # [1 x D'']
-
-        # fixme: fix naming
-        fs_decoder_hidden, fs_decoder_c = fs_encoder_lstm_hidden, fs_encoder_lstm_c
-
-        # Prepare for attention
-        # here we are again assuming batch size of 1.
-        fs_encoder_lstm_out_without_batch = fs_encoder_lstm_out.squeeze(1)
-        encoder_result_ready_for_attention = (
-            fs_encoder_lstm_out_without_batch @ self.fs_decoder_attention_W1
-        )  # [T x D']
-
-        # Prepare for decoding loop
-        predicted_lengths = []
-        predicted_transcripts = []
-        if self.teacher_forcing or self.training:
-            decoding_iter_length = tf_transcript_target_length
-        else:
-            decoding_iter_length = self.max_decoding_steps
-
-        # decoding for loop
-        for decoding_step in range(decoding_iter_length):
-            if self.teacher_forcing:
-                decoder_input = transcript_tf_input[decoding_step].unsqueeze(0)
-            else:
-                if decoding_step == 0:
-                    # taking the zeroth element from the input, since it is always SOS
-                    decoder_input = transcript_tf_input[0].unsqueeze(0)
-                else:
-                    # input will be set automatically at the end of the previous loop
-                    pass
-
-            # Calculated input embedding.
-            # fixme: this can be done outside and all at once if teacher forcing is on.
-            # noinspection PyUnboundLocalVariable
-            decoder_input_embedded = self.fs_decoder_embedding.forward(
-                decoder_input
-            )  # [1 x Ds]
-            decoder_input_embedded = self.fs_decoder_embedding_drop.forward(
-                F.relu(decoder_input_embedded)
-            )
-
-            # Apply Attention
-            attention_weights = self._calculate_attention(
-                current_hidden_state=fs_decoder_hidden,
-                encoder_result_ready_for_attention=encoder_result_ready_for_attention,
-            )  # [Tz]
-
-            # we are using broadcasting here for multiplication, so first the hidden size dimension
-            # is added to attention_weights with unsqueeze(1).
-            # at the end, the summation is applied in the temporal dimension.
-            # attention_weights: [Tz]
-            # fs_encoder_lstm_out_without_batch: [Tz x 2Ds]
-            attention_applied = (
-                attention_weights.unsqueeze(1) * fs_encoder_lstm_out_without_batch
-            ).sum(
-                dim=0, keepdim=True
-            )  # [1 x 2Ds]
-
-            attn_concat_input = torch.cat(
-                (decoder_input_embedded, attention_applied), 1
-            )  # [1 x 2Ds + Ds]
-
-            # output_attn = self.fs_decoder_attn_combine.forward(
-            #     attn_concat_input
-            # ).unsqueeze(0)
-            output_attn = self.fs_decoder_attn_combine.forward(attn_concat_input)
-            # output_attn = F.relu(output_attn)  # [1 x 1 x Ds]
-            output_attn = F.relu(output_attn)  # [1 x Ds]
-
-            # FIXME: HERE!!
-            current_state = LSTMState(fs_decoder_hidden, fs_decoder_c)
-
-            # Decode
-            # fs_decoder_out [1 x Ds]
-            # fs_decoder_hidden, fs_decoder_s : [1 x Ds]
-            (fs_decoder_out, next_state) = self.fs_decoder_lstm.forward(
-                output_attn, current_state
-            )
-            fs_decoder_hidden, fs_decoder_c = next_state
-
-            # Generate Transcript and Length
-            # pred_transcript [1 x 1 x num_decoder_words]
-            pred_transcript = self.fs_decoder_transcript.forward(
-                fs_decoder_out.unsqueeze(0)
-            )
-
-            s_input = torch.cat((output_attn.unsqueeze(0), pred_transcript), 2)
-            s_input = F.relu(s_input)
-
-            pred_length = self.fs_decoder_length.forward(s_input).squeeze()  # []
-
-            # This means that we have to care about loss
-            # and use nll_loss instead of cross entropy.
-            pred_transcript = F.log_softmax(
-                pred_transcript.squeeze(0), dim=1
-            )  # [1 x num_decoder_words]
-
-            # Append to the list of predictions
-            predicted_transcripts.append(pred_transcript)
-            predicted_lengths.append(pred_length)
-
-            # Handling inference and non-teacher forcing case.
-            predicted_word = pred_transcript.argmax(dim=1)
-            if not self.teacher_forcing and not self.training:
-                # check if we should break
-                if predicted_word.item() == self.EOS_token_id:
-                    break
-
-            if not self.teacher_forcing:
-                # set the decoder input for next step
-                decoder_input = predicted_word
-
-        return predicted_transcripts, predicted_lengths
-
-
 class MuConFullySupervised(MuCon):
     def __init__(
         self,
@@ -1170,181 +909,3 @@ class MuConMixedSupervision(MuConFullySupervised):
             classification_loss=classification_loss,
             supervised_length_loss=supervised_length_loss,
         )
-
-
-class MuConGlobalLength(MuCon):
-    """
-    Instead of predicting the length at each stage of the decoder,
-    maintain a global length model
-    """
-
-    def __init__(
-        self,
-        cfg: CfgNode,
-        input_feature_size: int,
-        num_classes: int,
-        max_decoding_steps: int,
-    ):
-        super().__init__(
-            cfg=cfg,
-            input_feature_size=input_feature_size,
-            num_classes=num_classes,
-            max_decoding_steps=max_decoding_steps,
-        )
-        # + 1 is because we kind of have to have a parameter for the length of eos!
-        self.alpha = nn.Parameter(
-            data=torch.zeros(self.num_classes + 1, dtype=torch.float32),
-            requires_grad=True,
-        )
-
-        self.params_set_decode.append(self.alpha)
-
-    def sequence_generation_forward(
-        self,
-        temporal_encoded: Tensor,
-        tf_transcript_target_length: int,
-        transcript_tf_input: Tensor,
-        transcript_tf_target: Tensor,
-    ):
-        """
-        :param temporal_encoded: [1 x T' x D']
-        :param tf_transcript_target_length: int
-        :param transcript_tf_input: [N + 1] long
-        :param transcript_tf_target: [N + 1] long
-        :return:
-        """
-
-        # bidirectional lstm encoder
-        # fs_encoder_lstm_out: [1 x T x 2*D']  because it is bidirectional
-        # fs_encoder_lstm_hidden, fs_encoder_lstm_c: [2 x 1 x D'], 2 because it is bidirectional.
-        (
-            fs_encoder_lstm_out,
-            (fs_encoder_lstm_hidden, fs_encoder_lstm_c),
-        ) = self.fs_encoder_lstm.forward(temporal_encoded)
-
-        fs_encoder_lstm_hidden_flat = fs_encoder_lstm_hidden.view(1, -1)
-        fs_encoder_lstm_c_flat = fs_encoder_lstm_c.view(1, -1)
-
-        fs_encoder_lstm_hidden = self.fs_encoder_hidden_out.forward(
-            fs_encoder_lstm_hidden_flat
-        ).unsqueeze(
-            0
-        )  # [1 x 1 x D'']
-        fs_encoder_lstm_c = self.fs_encoder_cn_out.forward(
-            fs_encoder_lstm_c_flat
-        ).unsqueeze(
-            0
-        )  # [1 x 1 x D'']
-
-        # fixme: fix naming
-        fs_decoder_hidden, fs_decoder_c = fs_encoder_lstm_hidden, fs_encoder_lstm_c
-
-        # Prepare for attention
-        # here we are again assuming batch size of 1.
-        fs_encoder_lstm_out_without_batch = fs_encoder_lstm_out[0]
-        encoder_result_ready_for_attention = (
-            fs_encoder_lstm_out_without_batch @ self.fs_decoder_attention_W1
-        )  # [T x D']
-
-        # Prepare for decoding loop
-        predicted_lengths = []
-        predicted_transcripts = []
-        if self.teacher_forcing or self.training:
-            decoding_iter_length = tf_transcript_target_length
-        else:
-            decoding_iter_length = self.max_decoding_steps
-
-        # decoding for loop
-        for decoding_step in range(decoding_iter_length):
-            if self.teacher_forcing:
-                decoder_input = transcript_tf_input[decoding_step].unsqueeze(0)
-            else:
-                if decoding_step == 0:
-                    # taking the zeroth element from the input, since it is always SOS
-                    decoder_input = transcript_tf_input[0].unsqueeze(0)
-                else:
-                    # input will be set automatically at the end of the previous loop
-                    pass
-
-            # Calculated input embedding.
-            # fixme: this can be done outside and all at once if teacher forcing is on.
-            # noinspection PyUnboundLocalVariable
-            decoder_input_embedded = self.fs_decoder_embedding.forward(
-                decoder_input
-            )  # [1 x Ds]
-            decoder_input_embedded = self.fs_decoder_embedding_drop.forward(
-                F.relu(decoder_input_embedded)
-            )
-
-            # Apply Attention
-            attention_weights = self._calculate_attention(
-                current_hidden_state=fs_decoder_hidden,
-                encoder_result_ready_for_attention=encoder_result_ready_for_attention,
-            )  # [Tz]
-
-            # we are using broadcasting here for multiplication, so first the hidden size dimension
-            # is added to attention_weights with unsqueeze(1).
-            # at the end, the summation is applied in the temporal dimension.
-            # attention_weights: [Tz]
-            # fs_encoder_lstm_out_without_batch: [Tz x 2Ds]
-            attention_applied = (
-                attention_weights.unsqueeze(1) * fs_encoder_lstm_out_without_batch
-            ).sum(
-                dim=0, keepdim=True
-            )  # [1 x 2Ds]
-
-            attn_concat_input = torch.cat(
-                (decoder_input_embedded, attention_applied), 1
-            )  # [1 x 2Ds + Ds]
-
-            output_attn = self.fs_decoder_attn_combine.forward(
-                attn_concat_input
-            ).unsqueeze(0)
-            output_attn = F.relu(output_attn)  # [1 x 1 x Ds]
-
-            # Decode
-            # fs_decoder_out [1 x 1 x Ds]
-            # fs_decoder_hidden, fs_decoder_s : [1 x 1 x Ds]
-            (
-                fs_decoder_out,
-                (fs_decoder_hidden, fs_decoder_c),
-            ) = self.fs_decoder_lstm.forward(
-                output_attn, (fs_decoder_hidden, fs_decoder_c)
-            )
-
-            # Generate Transcript and Length
-            # pred_transcript [1 x 1 x num_decoder_words]
-            pred_transcript = self.fs_decoder_transcript.forward(fs_decoder_out)
-            predicted_word = pred_transcript[0].argmax(dim=1)
-
-            # s_input = torch.cat((output_attn, pred_transcript), 2)
-            # s_input = F.relu(s_input)
-            #
-            # pred_length = self.fs_decoder_length.forward(s_input).squeeze()  # []
-
-            if not self.teacher_forcing:
-                pred_length = self.alpha[predicted_word.item()]
-            else:
-                pred_length = self.alpha[transcript_tf_target[decoding_step]]
-
-            # This means that we have to care about loss
-            # and use nll_loss instead of cross entropy.
-            pred_transcript = F.log_softmax(
-                pred_transcript.squeeze(0), dim=1
-            )  # [1 x num_decoder_words]
-
-            # Append to the list of predictions
-            predicted_transcripts.append(pred_transcript)
-            predicted_lengths.append(pred_length)
-
-            # Handling inference and non-teacher forcing case.
-            if not self.teacher_forcing and not self.training:
-                # check if we should break
-                if predicted_word.item() == self.EOS_token_id:
-                    break
-
-            if not self.teacher_forcing:
-                # set the decoder input for next step
-                decoder_input = predicted_word
-
-        return predicted_transcripts, predicted_lengths

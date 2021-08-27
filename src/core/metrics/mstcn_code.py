@@ -25,25 +25,23 @@ def get_labels_start_end_time(frame_wise_labels, bg_class=["background"]):
 
 
 def levenstein(p, y, norm=False):
-    m_row = len(p) 
+    m_row = len(p)
     n_col = len(y)
-    D = np.zeros([m_row+1, n_col+1], np.float)
-    for i in range(m_row+1):
+    D = np.zeros([m_row + 1, n_col + 1], np.float)
+    for i in range(m_row + 1):
         D[i, 0] = i
-    for i in range(n_col+1):
+    for i in range(n_col + 1):
         D[0, i] = i
 
-    for j in range(1, n_col+1):
-        for i in range(1, m_row+1):
-            if y[j-1] == p[i-1]:
-                D[i, j] = D[i-1, j-1]
+    for j in range(1, n_col + 1):
+        for i in range(1, m_row + 1):
+            if y[j - 1] == p[i - 1]:
+                D[i, j] = D[i - 1, j - 1]
             else:
-                D[i, j] = min(D[i-1, j] + 1,
-                              D[i, j-1] + 1,
-                              D[i-1, j-1] + 1)
-    
+                D[i, j] = min(D[i - 1, j] + 1, D[i, j - 1] + 1, D[i - 1, j - 1] + 1)
+
     if norm:
-        score = (1 - D[-1, -1]/max(m_row, n_col)) * 100
+        score = (1 - D[-1, -1] / max(m_row, n_col)) * 100
     else:
         score = D[-1, -1]
 
@@ -68,7 +66,9 @@ def f_score(recognized, ground_truth, overlap, bg_class=["background"]):
     for j in range(len(p_label)):
         intersection = np.minimum(p_end[j], y_end) - np.maximum(p_start[j], y_start)
         union = np.maximum(p_end[j], y_end) - np.minimum(p_start[j], y_start)
-        IoU = (1.0*intersection / union)*([p_label[j] == y_label[x] for x in range(len(y_label))])
+        IoU = (1.0 * intersection / union) * (
+            [p_label[j] == y_label[x] for x in range(len(y_label))]
+        )
         # Get the best scoring segment
         idx = np.array(IoU).argmax()
 

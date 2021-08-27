@@ -1,7 +1,8 @@
 from typing import List
 
-from edit_distance import SequenceMatcher
 import numpy as np
+from edit_distance import SequenceMatcher
+
 from core.metrics import Metric
 
 

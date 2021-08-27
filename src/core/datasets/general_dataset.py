@@ -54,8 +54,8 @@ class GeneralDataset(Dataset):
         relative_path_to_train_list: Path = None,
     ):
         """
-            relative_path_to_train_list is added because sometimes we need to do full decoding,
-            which means we need access to the full set of training transcripts.
+        relative_path_to_train_list is added because sometimes we need to do full decoding,
+        which means we need access to the full set of training transcripts.
         """
         super().__init__(cfg)
         self.root = root
@@ -126,8 +126,7 @@ class GeneralDataset(Dataset):
                 self.training_transcripts_list.append(list(t))
 
             self.training_path_grammar = ModifiedPathGrammar(
-                transcripts=self.training_transcripts_list,
-                num_classes=self.num_actions
+                transcripts=self.training_transcripts_list, num_classes=self.num_actions
             )
 
     def get_num_classes(self) -> int:

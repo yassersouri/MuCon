@@ -1,7 +1,9 @@
+from typing import List, Iterable
+
+import numpy as np
+
 from . import Metric
 from .mstcn_code import edit_score, f_score
-from typing import List, Iterable
-import numpy as np
 
 
 class Edit(Metric):
@@ -13,9 +15,7 @@ class Edit(Metric):
     def reset(self):
         self.values = []
 
-    def add(
-        self, targets: List[int], predictions: List[int]
-    ) -> float:
+    def add(self, targets: List[int], predictions: List[int]) -> float:
         current_score = edit_score(
             recognized=predictions,
             ground_truth=targets,
@@ -48,9 +48,7 @@ class F1Score(Metric):
         self.fp = [0.0] * len(self.overlaps)
         self.fn = [0.0] * len(self.overlaps)
 
-    def add(
-        self, targets: List[int], predictions: List[int]
-    ) -> List[float]:
+    def add(self, targets: List[int], predictions: List[int]) -> List[float]:
         current_result = []
 
         for s in range(len(self.overlaps)):

@@ -18,7 +18,7 @@ _C.trainer.clip_grad_norm = True
 _C.trainer.clip_grad_norm_separate = True
 _C.trainer.clip_grad_norm_every_param = False
 _C.trainer.clip_grad_norm_value = 100.0
-_C.trainer.optimizer = "SGD"  # ["SGD", "Adam", "RAdam"]
+_C.trainer.optimizer = "SGD"  # ["SGD", "Adam"]
 _C.trainer.learning_rate = 0.01
 _C.trainer.momentum = 0.0
 _C.trainer.weight_decay = 0.005
@@ -43,7 +43,7 @@ _C.evaluator.viterbi.multi_length = False
 
 _C.model = CN()
 _C.model.teacher_forcing = True
-_C.model.name = "mucon"  # "mucon", "mucon-lnlstm", "mucon-glm"
+_C.model.name = "mucon"  # "mucon"
 _C.model.first_gru_hidden_size = 128
 _C.model.loss = CN()
 _C.model.loss.mul_mucon = 1.0
